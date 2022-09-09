@@ -1,0 +1,148 @@
+//inclusão de bibliotecas
+#include <Keypad.h>
+#include <LiquidCrystal.h>
+#include <Servo.h>
+
+//declaração de variáveis (servo motor)
+Servo servo;
+int close = 90;
+int open = 0;
+
+//declaração de variáveis (LCD)
+const int RS=A0, EN=A1, DB4=A2, DB5=A3, DB6=A4, DB7=A5;     
+LiquidCrystal lcd(RS, EN, DB4, DB5, DB6, DB7);
+
+//declaração de variáveis (teclado)
+const byte LINHAS = 4; 
+const byte COLUNAS = 4; 
+char keys[LINHAS][COLUNAS] = 
+{
+  {'1','2','3','A'},
+  {'4','5','6','B'},
+  {'7','8','9','C'},
+  {'*','0','#','D'},
+};
+
+byte linhaPins[LINHAS] = {8, 7, 6, 5};
+byte colunaPins[COLUNAS] = {4, 3, 2, 1}; 
+
+Keypad keypad = Keypad(makeKeymap(keys), linhaPins, colunaPins, LINHAS, COLUNAS);
+
+//declaração de variáveis (LEDs e sensores)
+int LED_vermelho = 11, LED_verde = 12;
+int sensor_entrada = 10, sensor_saida = 9;
+
+//declaração de variáveis (auxiliares no funcionamento do programa)
+int contador = 0;
+int limite = 4;
+long first=0;
+
+void setup()
+{
+  //quando o dispositivo é ligado, essa é configuração inicial para que ele funcione
+	Serial.begin(9600);
+  servo.attach(13);
+  
+	//declaração de quais serão as funções, entrada o saída de informações  
+  pinMode(LED_vermelho, OUTPUT); 
+  pinMode(LED_verde, OUTPUT);
+  pinMode(sensor_entrada, INPUT);
+  pinMode(sensor_saida, INPUT);
+
+  //mensagem no lcd que mostra ao usuário que o dispositivo está sendo inicializado
+  lcd.begin(16, 2); 
+  lcd.setCursor(3, 0); lcd.print("IFSP SALTO");
+  lcd.setCursor(1, 1); lcd.print("Seja Bem Vindo");
+  
+  delay(3000);
+  lcd.clear();
+  delay(1000);
+  
+	//pede para digitar o limite de pessoas que serão permitidas no dia
+  lcd.setCursor(0,0); lcd.print("Digite o limite");
+  lcd.setCursor(0,1); lcd.print("de pessoas");
+  delay(1000);
+  
+}
+
+void loop()
+{
+	
+	//leitura dos valores digitados pelo usuário
+  char key = keypad.getKey();
+  
+	//troca de tipo de variável (char -> int)
+  switch(key) 
+  {
+  case '0' ... '9':
+    lcd.clear();
+    lcd.setCursor(0,0);
+    first = first * 10 + (key - '0');
+    lcd.print(first);
+    
+    break;
+ 
+  //quando o usuário digita '#' siginifica que a entrada de dados está finalizada
+  case '#':
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Qtd salva");
+    lcd.setCursor(0,1);
+    lcd.print(first);
+    
+		//atribuição do valor digitado à variável de limite
+    limite = first;
+    
+    delay(2000);
+    lcd.clear();
+    break;
+    
+		//caso o usuario erre durante a digitação, ao pressionar * ele pode apagar o valor digitado
+   case '*':
+    lcd.clear();
+    first = 0;
+  
+  }
+  
+	//condição para que o dispositivo continue permitindo a entrada de pessoas
+	//LED vermelho desligado, LED verde ligado, e catraca levantada
+  if(contador < limite)
+  {
+    digitalWrite(LED_vermelho, LOW);
+    digitalWrite(LED_verde, HIGH);
+  	servo.write(open);
+  	delay(15);
+  }
+  
+	//se o sensor da entrada for acionado, adiciona-se uma pessoa ao coontador, e é exibido no lcd
+  if(digitalRead(sensor_entrada) == HIGH)
+  {
+    contador++;
+    delay(2000);
+    lcd.setCursor(0,0); lcd.print("Agora:");
+    lcd.setCursor(6,0); lcd.print(contador);
+    lcd.setCursor(0,1); lcd.print("Limite:");
+    lcd.setCursor(7,1); lcd.print(limite);
+  }
+	//se o sensor da saida for acionado, subtrai uma pessoa do contador, e é exibido no lcd
+  if(digitalRead(sensor_saida) == HIGH)
+  {
+    contador--;
+    delay(2000);
+    lcd.setCursor(0,0); lcd.print("Agora:");
+    lcd.setCursor(6,0); lcd.print(contador);
+    lcd.setCursor(0,1); lcd.print("Limite:");
+    lcd.setCursor(7,1); lcd.print(limite);
+  }
+  
+	//se o limite de pessoas for atingido
+	//LED vermelho acende, LED verde apaga, e o servo faz a catraca abaixar, impedindo a entrada de pessoas
+  if(contador == limite)
+  {
+    digitalWrite(LED_verde, LOW);
+    digitalWrite(LED_vermelho, HIGH);
+    servo.write(close);
+    delay(15);
+    
+  }
+}
